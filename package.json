@@ -1,11 +1,12 @@
 {
-  "name": "job-matcher-service",
+  "name": "job-matcher",
   "version": "1.0.0",
   "description": "A service to match users with jobs.",
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "functions-framework --target=app",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
@@ -14,6 +15,7 @@
     "@google-cloud/bigquery": "^7.8.0",
     "@google-cloud/firestore": "^7.11.3",
     "dotenv": "^17.2.2",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "@google-cloud/functions-framework": "^3.4.0"
   }
 }
