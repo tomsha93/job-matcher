@@ -1,0 +1,15 @@
+steps:
+- name: 'gcr.io/cloud-builders/gcloud'
+  args:
+    - 'functions'
+    - 'deploy'
+    - 'job-matcher'
+    - '--gen2'
+    - '--runtime=nodejs22'
+    - '--trigger-http'
+    - '--region=europe-west1'
+    - '--source=.'
+    - '--allow-unauthenticated'
+    - '--service-account=firestore-bot-runner@referrals-470107.iam.gserviceaccount.com'
+options:
+  logging: CLOUD_LOGGING_ONLY
