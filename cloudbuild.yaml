@@ -10,6 +10,7 @@ steps:
     - '--region=europe-west1'
     - '--source=.'
     - '--allow-unauthenticated'
+    - '--entry-point=app' # <-- Add this line
     - '--service-account=firestore-bot-runner@referrals-470107.iam.gserviceaccount.com'
 options:
   logging: CLOUD_LOGGING_ONLY

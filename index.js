@@ -47,3 +47,5 @@ app.get('/test-connections', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is listening on port ${PORT}`);
 });
+
+export { app }; // <-- Add this line
