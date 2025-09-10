@@ -155,12 +155,26 @@ function matchesLeadership(userPrefs, normalizedJob) {
  */
 export function isMatch(userPreferences, jobFromBigQuery) {
     const job = normalizeJob(jobFromBigQuery);
+    const user = userPreferences;
 
-    if (!matchesExperience(userPreferences, job)) return false;
-    if (!matchesDomains(userPreferences.domains, job.domains)) return false;
-    if (!matchesLocation(userPreferences.locations, job.locations)) return false;
-    if (!matchesLeadership(userPreferences, job)) return false;
+    console.log(`--- Checking match for User: ${user.fullName} & Job: ${job.title} ---`);
+
+    const expMatch = matchesExperience(user, job);
+    console.log(`- Experience Match: ${expMatch}`);
+    if (!expMatch) return false;
+
+    const domainMatch = matchesDomains(user.domains, job.domains);
+    console.log(`- Domain Match: ${domainMatch}`);
+    if (!domainMatch) return false;
+
+    const locMatch = matchesLocation(user.locations, job.locations);
+    console.log(`- Location Match: ${locMatch}`);
+    if (!locMatch) return false;
     
-    // If all checks pass, it's a match!
+    const leadershipMatch = matchesLeadership(user, job);
+    console.log(`- Leadership Match: ${leadershipMatch}`);
+    if (!leadershipMatch) return false;
+
+    console.log('✅ SUCCESS: All criteria matched!');
     return true;
 }
