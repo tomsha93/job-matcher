@@ -1,47 +1,55 @@
-import 'dotenv/config';
 import express from 'express';
 import { Firestore } from '@google-cloud/firestore';
 import { BigQuery } from '@google-cloud/bigquery';
+import { isMatch } from './matchingLogic.js';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// Initialize clients
-// On GCP, they will automatically use the service account.
-// Locally, they will use your `gcloud auth application-default login` credentials.
 const firestore = new Firestore();
 const bigquery = new BigQuery();
 
-app.get('/test-connections', async (req, res) => {
+// This is the main endpoint that Cloud Scheduler will trigger.
+app.get('/run', async (req, res) => {
   try {
-    // 1. Test Firestore Connection
-    console.log('Testing Firestore connection...');
-    const usersSnapshot = await firestore.collection('users').limit(1).get();
-    const firestoreResult = `Successfully fetched ${usersSnapshot.size} user(s) from Firestore.`;
-    console.log(firestoreResult);
+    console.log('Starting job matching process...');
 
-    // 2. Test BigQuery Connection
-    // !!! IMPORTANT: Replace with your actual dataset and table ID !!!
-    const query = 'SELECT * FROM `referrals-470107.Scraper_DS.jobs2` LIMIT 1';
-    console.log('Testing BigQuery connection with query:', query);
-    const [rows] = await bigquery.query({ query });
-    const bigqueryResult = `Successfully fetched ${rows.length} row(s) from BigQuery.`;
-    console.log(bigqueryResult);
-
-    // 3. Send success response
-    res.status(200).send({
-      message: '✅ All connections successful!',
-      firestore: firestoreResult,
-      bigquery: bigqueryResult
+    // 1. Fetch all users who have completed onboarding
+    const usersSnapshot = await firestore.collection('users').where('state', '==', 'completed').get();
+    const users = [];
+    usersSnapshot.forEach(doc => {
+        users.push({ id: doc.id, preferences: doc.data().preferences });
     });
+    console.log(`Found ${users.length} completed users.`);
+
+    // 2. Fetch all jobs from BigQuery
+    // !!! IMPORTANT: Replace with your actual dataset and table ID !!!
+    const query = 'SELECT * FROM `referrals-470107.Scraper_DS.jobs2`';
+    const [jobs] = await bigquery.query({ query });
+    console.log(`Found ${jobs.length} jobs.`);
+
+    let matchCount = 0;
+
+    // 3. Loop and find matches
+    for (const user of users) {
+        for (const job of jobs) {
+            if (isMatch(user.preferences, job)) {
+                console.log(`Match found! User: ${user.id}, Job: ${job.title}`);
+                matchCount++;
+                // TODO: In the next step, we will add the code here to save the match to Firestore.
+            }
+        }
+    }
+
+    const resultMessage = `Matching process completed. Found ${matchCount} total potential matches.`;
+    console.log(resultMessage);
+    res.status(200).send(resultMessage);
 
   } catch (error) {
-    console.error('Connection test failed:', error);
-    res.status(500).send({
-      message: '🔥 Connection test failed.',
-      error: error.message
-    });
+    console.error('Job matching process failed:', error);
+    res.status(500).send(`Error: ${error.message}`);
   }
 });
 
-export { app }; // <-- Add this line
+// The Functions Framework will handle starting the server.
+export { app };
