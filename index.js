@@ -68,7 +68,7 @@ ON
     pm.user_id = hist.user_id AND pm.job_id = hist.job_id
 GROUP BY
     pm.user_id,
-    pm.job_id,
+    CAST(pm.job_id AS STRING) AS job_id,
     pm.job_title,
     pm.job_url,
     pm.status
