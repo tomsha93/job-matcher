@@ -63,7 +63,7 @@ MatchesWithHistory AS (
         MAX(hist.sent_timestamp) as last_sent
     FROM PotentialMatches pm
     LEFT JOIN \`referrals-470107.matching.match_history\` hist
-        ON pm.user_id = hist.user_id AND pm.job_id = hist.job_id
+        ON pm.user_id = hist.user_id AND pm.job_id = CAST(hist.job_id AS STRING)
     GROUP BY 1, 2, 3, 4, 5
 )
 SELECT
