@@ -52,35 +52,31 @@ PotentialMatches AS (
         ELSE TRUE
       END
     )
+),
+MatchesWithHistory AS (
+    SELECT
+        pm.user_id,
+        pm.job_id,
+        pm.job_title,
+        pm.job_url,
+        pm.status,
+        MAX(hist.sent_timestamp) as last_sent
+    FROM PotentialMatches pm
+    LEFT JOIN \`referrals-470107.matching.match_history\` hist
+        ON pm.user_id = hist.user_id AND pm.job_id = hist.job_id
+    GROUP BY 1, 2, 3, 4, 5
 )
--- Final step: Filter the potential matches against the send history
 SELECT
-    pm.user_id,
-    pm.job_id,
-    pm.job_title,
-    pm.job_url,
-    pm.status
-FROM
-    PotentialMatches pm
-LEFT JOIN
-    \`referrals-470107.matching.match_history\` hist
-ON
-    pm.user_id = hist.user_id AND pm.job_id = hist.job_id
-GROUP BY
-    pm.user_id,
-    CAST(pm.job_id AS STRING) AS job_id,
-    pm.job_title,
-    pm.job_url,
-    pm.status
-HAVING
-    -- Condition 1: The job has never been sent (the MAX timestamp will be NULL)
-    MAX(hist.sent_timestamp) IS NULL
-    OR
-    -- Condition 2: The job was sent, but enough time has passed to resend it
+    user_id,
+    CAST(job_id AS STRING) AS job_id,
+    job_title,
+    job_url
+FROM MatchesWithHistory
+WHERE
+    last_sent IS NULL OR
     (
-        (pm.status IN ('student_position', 'no_experience_position') AND DATE_DIFF(CURRENT_DATE(), DATE(MAX(hist.sent_timestamp)), DAY) > 3)
-        OR
-        (pm.status = 'experience_position' AND DATE_DIFF(CURRENT_DATE(), DATE(MAX(hist.sent_timestamp)), DAY) > 14)
+        (status IN ('student_position', 'no_experience_position') AND DATE_DIFF(CURRENT_DATE(), DATE(last_sent), DAY) > 3) OR
+        (status = 'experience_position' AND DATE_DIFF(CURRENT_DATE(), DATE(last_sent), DAY) > 14)
     )
 `;
 
@@ -106,7 +102,7 @@ app.post('/run', async (req, res) => {
     for (const job of jobsToSync) {
       const { user_id, job_id, job_title, job_url } = job;
       
-      const matchRef = firestore.collection('users').doc(user_id).collection('matchedJobs').doc(String(job_id));
+      const matchRef = firestore.collection('users').doc(user_id).collection('matchedJobs').doc(job_id);
       firestoreWrites.push(matchRef.set({
         status: 'new',
         title: job_title,
@@ -114,9 +110,10 @@ app.post('/run', async (req, res) => {
         matchedTimestamp: now
       }, { merge: true }));
 
+      // --- FIX: Convert job_id back to a number for BigQuery ---
       historyRows.push({
         user_id: user_id,
-        job_id: job_id,
+        job_id: parseInt(job_id, 10),
         sent_timestamp: now.toISOString()
       });
     }
