@@ -6,17 +6,7 @@ const app = express();
 const firestore = new Firestore();
 const bigquery = new BigQuery();
 
-/**
- * MASTER MATCHING QUERY - Job-to-User Matching Algorithm
- * 
- * This complex SQL query matches users with suitable job opportunities using a multi-step approach:
- * 1. UserPreferences CTE: Extracts user preferences from Firestore data
- * 2. PotentialMatches CTE: Applies matching logic based on experience, location, domain, and leadership
- * 3. MatchesWithHistory CTE: Adds notification history to prevent spam
- * 4. Final SELECT: Applies timing rules for notifications
- * 
- * See QUERY_EXPLANATION.md for detailed documentation.
- */
+// This is the Master Matching Query with the corrected SQL syntax.
 const MASTER_MATCHING_QUERY = `
 -- CTE 1: Extract and normalize user preferences from Firestore export
 WITH UserPreferences AS (
@@ -108,16 +98,17 @@ MatchesWithHistory AS (
         MAX(hist.sent_timestamp) as last_sent  -- Get most recent notification timestamp for this user-job pair
     FROM PotentialMatches pm
     LEFT JOIN \`referrals-470107.matching.match_history\` hist
-        ON pm.user_id = hist.user_id AND pm.job_id = CAST(hist.job_id AS STRING)  -- Join on user and job
-    GROUP BY 1, 2, 3, 4, 5  -- Group to get max timestamp per match
+        ON pm.user_id = hist.user_id AND pm.job_id = CAST(hist.job_id AS STRING)
+    GROUP BY 1, 2, 3, 4, 5
 )
 
 -- Final SELECT: Apply notification timing rules based on user status
 SELECT
     user_id,
-    CAST(job_id AS STRING) AS job_id,
+    job_id, -- This is already a string from the clean_jobs_view
     job_title,
-    job_url
+    job_url,
+    status
 FROM MatchesWithHistory
 WHERE
     last_sent IS NULL OR  -- Never been notified about this job
@@ -129,22 +120,10 @@ WHERE
     )
 `;
 
-/**
- * Main endpoint triggered by Cloud Scheduler for job matching process.
- * 
- * Process flow:
- * 1. Execute MASTER_MATCHING_QUERY to find new user-job matches
- * 2. If matches found, write them to Firestore for user access
- * 3. Record notification history in BigQuery to prevent duplicates
- * 4. Return success/failure status
- * 
- * The query handles all the complex matching logic, this endpoint just
- * orchestrates the data flow between BigQuery and Firestore.
- */
+// This is the main endpoint that Cloud Scheduler will trigger.
 app.post('/run', async (req, res) => {
   try {
     console.log('Starting job matching process...');
-
     const [jobsToSync] = await bigquery.query({ query: MASTER_MATCHING_QUERY });
     
     if (jobsToSync.length === 0) {
@@ -170,10 +149,10 @@ app.post('/run', async (req, res) => {
         matchedTimestamp: now
       }, { merge: true }));
 
-      // --- FIX: Convert job_id back to a number for BigQuery ---
+      // --- FIX: No longer need to parse to int ---
       historyRows.push({
         user_id: user_id,
-        job_id: parseInt(job_id, 10),
+        job_id: job_id, // job_id is now correctly a string
         sent_timestamp: now.toISOString()
       });
     }
