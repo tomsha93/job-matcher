@@ -29,7 +29,7 @@ WITH UserPreferences AS (
     JSON_EXTRACT_ARRAY(data, '$.preferences.managementLevel') AS management_level,   -- Array of acceptable management levels
     JSON_EXTRACT_ARRAY(data, '$.preferences.domains') AS domains,                   -- Array of preferred job domains
     JSON_EXTRACT_ARRAY(data, '$.preferences.locations') AS locations                -- Array of preferred locations
-  FROM 'referrals-470107.firestore_export.users_raw_latest'
+  FROM \`referrals-470107.firestore_export.users_raw_latest\`
   WHERE JSON_EXTRACT_SCALAR(data, '$.state') = 'completed'                           -- Only users with completed profiles
 ),
 
@@ -42,7 +42,7 @@ PotentialMatches AS (
     jobs.job_title,
     jobs.job_url
   FROM UserPreferences AS users
-  CROSS JOIN 'referrals-470107.matching.clean_jobs_view' AS jobs
+  CROSS JOIN \`referrals-470107.matching.clean_jobs_view\` AS jobs
   WHERE
     -- FILTER 1: Experience/Status Matching Logic
     (
@@ -139,7 +139,7 @@ MatchesWithHistory AS (
     pm.status,
     MAX(hist.sent_timestamp) AS last_sent  -- Most recent notification timestamp for this user-job pair
   FROM PotentialMatches pm
-  LEFT JOIN 'referrals-470107.matching.match_history' AS hist
+  LEFT JOIN \`referrals-470107.matching.match_history\` AS hist
     ON pm.user_id = hist.user_id
    AND pm.job_id = CAST(hist.job_id AS STRING)
   GROUP BY 1, 2, 3, 4, 5
